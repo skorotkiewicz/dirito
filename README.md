@@ -5,15 +5,14 @@ A browser workspace for a local directory: files, a text editor, an interactive 
 Requires Bun 1.3.5 or newer with `Bun.Terminal` support. A shell must be installed.
 
 ```sh
-bun install
-bun link
-
-dev-shell ./my-project
-dev-shell --watch ./my-project
-dev-shell ./my-project --watch --proxy /api=http://localhost:3001
+bunx dev-shell dir/
+bunx dev-shell --watch dir/
+bunx dev-shell dir/ --watch --proxy /api=http://localhost:3001
 ```
 
-Without linking, run `bun index.ts ./my-project --watch`. The browser opens automatically. Use `--no-open` to print the URL without opening it, and `--port 4000` to change the workspace port. `--port 0` chooses an available port.
+The browser opens automatically. Use `--no-open` to print the URL without opening it, and `--port 4000` to change the workspace port. `--port 0` chooses an available port. The executable uses a Bun shebang, so no `--bun` flag is needed.
+
+For local development, run `bun install` followed by `bun index.ts dir/ --watch`. You can also run `bun link` to make `dev-shell` available locally.
 
 ## Workspace
 
