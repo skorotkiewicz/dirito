@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
-import { realpath, readdir, stat, mkdir, rename, rm, open } from "node:fs/promises";
+import { realpath, readdir, stat, lstat, mkdir, rename, rm, rmdir, open } from "node:fs/promises";
 import { watch, type FSWatcher } from "node:fs";
 import { resolve, relative, dirname, sep, join } from "node:path";
 import workspace from "./workspace.html";
@@ -9,7 +9,7 @@ const MAX_FILE = 1024 * 1024;
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
-const fail = (status: number, message: string): never => { throw new HttpError(status, message); };
+function fail(status: number, message: string): never { throw new HttpError(status, message); }
 const version = (text: string) => Bun.hash(text).toString(16);
 
 export function proxyConfig(value: string) {
@@ -35,6 +35,7 @@ export async function startWorkspace(directory: string, options: { port?: number
   const events = new Set<Bun.ServerWebSocket<SocketData>>();
   const terminals = new Set<Bun.ServerWebSocket<SocketData>>();
   const reloaders = new Set<Bun.ServerWebSocket<{}>>();
+  const saves = new Set<string>();
   type SocketData = { kind: "events" | "terminal"; proc?: ReturnType<typeof Bun.spawn> };
 
   const inside = (path: string) => {
@@ -61,7 +62,7 @@ export async function startWorkspace(directory: string, options: { port?: number
     watcher = undefined;
     if (enabled) watcher = watch(root, { recursive: true }, (_, filename) => {
       const path = String(filename ?? "");
-      if (path.split(/[\\/]/).some(part => ["node_modules", ".git"].includes(part))) return;
+      if (path.split(/[\\/]/).some(part => ["node_modules", ".git"].includes(part) || part.startsWith(".dev-shell-save-"))) return;
       notify(path);
     });
     watching = enabled;
@@ -75,6 +76,7 @@ export async function startWorkspace(directory: string, options: { port?: number
     hostname: "127.0.0.1", port: options.previewPort ?? 0,
     async fetch(req, server) {
       const url = new URL(req.url);
+      if (url.origin !== server.url.origin) return new Response("Invalid host", { status: 403 });
       try {
         if (url.pathname === "/__dev-shell/live") {
           if (req.headers.get("origin") !== server.url.origin) return new Response("Forbidden", { status: 403 });
@@ -87,10 +89,14 @@ export async function startWorkspace(directory: string, options: { port?: number
           const headers = new Headers(req.headers);
           for (const key of ["host", "connection", "upgrade", "content-length"]) headers.delete(key);
           // ponytail: HTTP proxy only; add WebSocket forwarding when framework HMR is needed.
-          return await fetch(target, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : req.body, redirect: "manual" });
+          try {
+            return await fetch(target, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : req.body, redirect: "manual", decompress: false });
+          } catch { fail(502, "Proxy target is unavailable."); }
         }
         if (!["GET", "HEAD"].includes(req.method)) return new Response("Method not allowed", { status: 405 });
-        let path = await pathFor(decodeURIComponent(url.pathname).replace(/^\/+/, ""));
+        const requested = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+        if (requested.split("/").some(part => part === ".git" || part === ".env" || part.startsWith(".env."))) fail(403, "Private configuration is not served in previews.");
+        let path = await pathFor(requested);
         if ((await stat(path)).isDirectory()) path = await pathFor(relative(root, join(path, "index.html")));
         const file = Bun.file(path);
         if (!(await stat(path)).isFile()) fail(404, "Not a file.");
@@ -114,7 +120,7 @@ export async function startWorkspace(directory: string, options: { port?: number
     server = Bun.serve<SocketData>({
       hostname: "127.0.0.1", port: options.port ?? 3000,
       development: false,
-      maxRequestBodySize: MAX_FILE + 65536,
+      maxRequestBodySize: MAX_FILE * 6 + 65536,
       routes: { "/": workspace },
       async fetch(req, current) {
         const url = new URL(req.url);
@@ -152,24 +158,33 @@ export async function startWorkspace(directory: string, options: { port?: number
             const info = await stat(path);
             if (!info.isFile() || info.size > MAX_FILE) fail(400, "Editor supports text files up to 1 MiB.");
             const bytes = await Bun.file(path).bytes();
-            if (bytes.includes(0)) fail(400, "Binary files cannot be edited.");
+            if (bytes.length > MAX_FILE || bytes.includes(0)) fail(400, "Binary or oversized files cannot be edited.");
             let text: string;
-            try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { fail(400, "Editor supports UTF-8 text only."); }
+            try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); } catch { fail(400, "Editor supports UTF-8 text only."); }
             return Response.json({ text, version: version(text) });
           }
           if (url.pathname === "/api/file" && req.method === "PUT") {
             const body = await req.json();
             if (typeof body.text !== "string" || Buffer.byteLength(body.text) > MAX_FILE) fail(400, "File is too large.");
-            const path = await pathFor(body.path);
-            const handle = await open(path, "r+");
+            const path = await realpath(await pathFor(body.path));
+            if (saves.has(path)) fail(409, "A save is already in progress.");
+            saves.add(path);
+            const temporary = join(dirname(path), `.dev-shell-save-${crypto.randomUUID()}`);
             try {
-              if (!(await handle.stat()).isFile()) fail(400, "Not a file.");
-              const current = await handle.readFile("utf8");
-              if (version(current) !== body.version) fail(409, "File changed on disk. Reopen it before saving.");
-              await handle.writeFile(body.text);
-              await handle.truncate(Buffer.byteLength(body.text));
-              await handle.sync();
-            } finally { await handle.close(); }
+              const info = await stat(path);
+              if (!info.isFile() || info.size > MAX_FILE) fail(400, "Not an editable file.");
+              const check = async () => {
+                if (version(await Bun.file(path).text()) !== body.version) fail(409, "File changed on disk. Reopen it before saving.");
+              };
+              await check();
+              const handle = await open(temporary, "wx", info.mode);
+              try { await handle.writeFile(body.text); await handle.sync(); } finally { await handle.close(); }
+              await check();
+              await rename(temporary, path);
+            } finally {
+              saves.delete(path);
+              await rm(temporary, { force: true });
+            }
             notify(body.path);
             return Response.json({ version: version(body.text) });
           }
@@ -195,7 +210,8 @@ export async function startWorkspace(directory: string, options: { port?: number
             if (body.confirm !== body.path) fail(400, "Deletion requires confirmation of the path.");
             const path = await pathFor(body.path);
             if (path === root) fail(403, "Cannot delete the workspace root.");
-            await rm(path, { recursive: false }); // Non-empty directories require deliberate cleanup in the terminal.
+            if ((await lstat(path)).isDirectory()) await rmdir(path);
+            else await rm(path); // Non-empty directories require deliberate cleanup in the terminal.
             notify(body.path);
             return Response.json({ ok: true });
           }

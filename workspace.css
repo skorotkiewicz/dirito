@@ -28,7 +28,9 @@ h2 { font-size: 12px; font-weight: 600; margin: 0; flex: 1; letter-spacing: .03e
 .file-tools { display: flex; gap: 6px; padding: 12px 10px 4px; }
 .path { font-family: monospace; font-size: 11px; color: var(--muted); padding: 10px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #files { list-style: none; margin: 0; padding: 0 6px; flex: 1; overflow: auto; }
-#files button { width: 100%; text-align: left; border: 0; background: none; padding: 7px 8px; overflow: hidden; text-overflow: ellipsis; }
+#files li { display: flex; }
+#files button { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 7px 8px; overflow: hidden; text-overflow: ellipsis; }
+#files .enter-folder { flex: 0 0 30px; text-align: center; color: var(--muted); }
 #files button.selected { background: #344130; color: #d2efb3; }
 .file-actions { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
 .danger { color: #e6a699; }

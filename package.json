@@ -1,5 +1,12 @@
 {
   "name": "dev-shell",
+  "version": "0.1.0",
+  "bin": { "dev-shell": "./index.ts" },
+  "scripts": {
+    "dev": "bun index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
   "module": "index.ts",
   "type": "module",
   "devDependencies": {

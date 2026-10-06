@@ -55,7 +55,7 @@ async function list() {
     button.dataset.path = path;
     button.classList.toggle("selected", selected === path);
     button.onclick = () => run(async () => {
-      if (entry.directory) { directory = path; select(""); await list(); }
+      if (entry.directory) select(path);
       else {
         if (saving || !discard()) return;
         const file = await api(`file?path=${encodeURIComponent(path)}`);
@@ -64,9 +64,15 @@ async function list() {
         el("filename").textContent = path; updateEditor(); editor.focus(); status(`Opened ${path}`);
       }
     });
-    // Double-clicking a symlinked directory still goes through server path validation.
-    if (entry.symlink) button.ondblclick = () => run(async () => { await api(`files?path=${encodeURIComponent(path)}`); directory = path; select(""); await list(); });
-    li.append(button); return li;
+    li.append(button);
+    if (entry.directory || entry.symlink) {
+      const enter = () => run(async () => { await api(`files?path=${encodeURIComponent(path)}`); directory = path; select(""); await list(); });
+      button.ondblclick = enter;
+      const open = document.createElement("button");
+      open.textContent = "→"; open.className = "enter-folder";
+      open.setAttribute("aria-label", `Enter ${entry.name}`); open.onclick = enter; li.append(open);
+    }
+    return li;
   });
   el("files").replaceChildren(...items);
 }
@@ -139,6 +145,7 @@ el("rename").onclick = () => run(async () => {
   const to = prompt("Rename to a workspace-relative path", path);
   if (!to || to === path) return;
   await api("rename", "POST", { path, to });
+  if (directory === path || directory.startsWith(path + "/")) directory = directory.replace(path, to);
   clearEditor(); select(""); await list(); status(`Renamed ${path} to ${to}`);
 });
 el("delete").onclick = () => run(async () => {
@@ -148,6 +155,7 @@ el("delete").onclick = () => run(async () => {
   if (answer !== path) return;
   if (!discard()) return;
   await api("files", "DELETE", { path, confirm: answer });
+  if (directory === path) directory = path.split("/").slice(0, -1).join("/");
   clearEditor(); select(""); await list(); status(`Deleted ${path}`);
 });
 el("settings-toggle").onclick = () => {
