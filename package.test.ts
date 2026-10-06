@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 
 // Keep packaging checks away from the working tree and never contact a publish endpoint.
 test("npm tarball installs cleanly and runs through bunx from another directory", async () => {
-  const scratch = await mkdtemp(join(tmpdir(), "dev-shell-package-"));
+  const scratch = await mkdtemp(join(tmpdir(), "dirito-package-"));
   const consumer = join(scratch, "consumer");
   await mkdir(consumer);
   async function command(args: string[], cwd = import.meta.dir) {
@@ -22,16 +22,16 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
   const expected = ["package/README.md", "package/index.ts", "package/package.json", "package/workspace.css", "package/workspace.html", "package/workspace.ts"];
   if (await Bun.file(join(import.meta.dir, "LICENSE")).exists()) expected.push("package/LICENSE");
   expect(files).toEqual(expected.sort());
-  await Bun.write(join(consumer, "package.json"), JSON.stringify({ name: "package-smoke", private: true, dependencies: { "dev-shell": archive } }));
+  await Bun.write(join(consumer, "package.json"), JSON.stringify({ name: "package-smoke", private: true, dependencies: { "dirito": archive } }));
   await command([process.execPath, "install", "--production", "--ignore-scripts"], consumer);
   expect(await Bun.file(join(consumer, "node_modules/typescript/package.json")).exists()).toBe(false);
-  const installed = await Bun.file(join(consumer, "node_modules/dev-shell/package.json")).json();
-  expect(installed.bin["dev-shell"]).toBe("./index.ts");
+  const installed = await Bun.file(join(consumer, "node_modules/dirito/package.json")).json();
+  expect(installed.bin["dirito"]).toBe("./index.ts");
   expect(installed.peerDependencies).toBeUndefined();
   await mkdir(join(consumer, "project"));
   await Bun.write(join(consumer, "project/index.html"), "<!doctype html><h1>Packed preview</h1>");
-  expect(await command([process.execPath, "x", "--no-install", "dev-shell", "--help"], consumer)).toContain("Usage: dev-shell");
-  const cli = Bun.spawn([process.execPath, "x", "--no-install", "dev-shell", "project/", "--watch", "--no-open", "--port", "0"], { cwd: consumer, stdout: "pipe", stderr: "pipe" });
+  expect(await command([process.execPath, "x", "--no-install", "dirito", "--help"], consumer)).toContain("Usage: dirito");
+  const cli = Bun.spawn([process.execPath, "x", "--no-install", "dirito", "project/", "--watch", "--no-open", "--port", "0"], { cwd: consumer, stdout: "pipe", stderr: "pipe" });
   const bootTimeout = setTimeout(() => cli.kill(), 15000);
   try {
     let output = "";

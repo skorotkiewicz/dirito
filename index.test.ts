@@ -9,8 +9,8 @@ const BunSocket = WebSocket as unknown as { new(url: string, options: Bun.WebSoc
 
 // Scratch directories are kept in the OS temp directory, never in the user's workspace.
 test("workspace files, permissions, proxy, watching, and PTY", async () => {
-  const root = await mkdtemp(join(tmpdir(), "dev-shell-test-"));
-  const outside = await mkdtemp(join(tmpdir(), "dev-shell-outside-"));
+  const root = await mkdtemp(join(tmpdir(), "dirito-test-"));
+  const outside = await mkdtemp(join(tmpdir(), "dirito-outside-"));
   await Bun.write(join(root, "index.html"), "<!doctype html><h1>Preview works</h1>");
   await Bun.write(join(root, "notes.txt"), "first");
   await Bun.write(join(root, "binary.bin"), new Uint8Array([0, 255]));
@@ -64,7 +64,7 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
     expect((await api("files", "DELETE", { path: "", confirm: "" })).status).toBe(403);
 
     const preview = await (await fetch(app.preview.url)).text();
-    expect(preview).toContain("Preview works"); expect(preview).toContain("/__dev-shell/live");
+    expect(preview).toContain("Preview works"); expect(preview).toContain("/__dirito/live");
     expect((await fetch(`${app.preview.url}.env`)).status).toBe(403);
     expect((await fetch(`${app.preview.url}env-alias`)).status).toBe(403);
     expect((await fetch(`${app.preview.url}escape/secret.txt`)).status).toBe(403);
@@ -75,13 +75,13 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
     expect((await api("settings", "PUT", { watch: true, proxy: "/api=file:///etc" })).status).toBe(400);
     await api("settings", "PUT", { watch: true, proxy: "" });
 
-    const live = connect(`${app.preview.url.origin.replace(/^http/, "ws")}/__dev-shell/live`, app.preview.url.origin);
+    const live = connect(`${app.preview.url.origin.replace(/^http/, "ws")}/__dirito/live`, app.preview.url.origin);
     await opened(live);
     const reload = new Promise<string>(resolve => live.addEventListener("message", event => resolve(String(event.data)), { once: true }));
     await Bun.write(join(root, "watched.txt"), "changed");
     expect(await reload).toBe("reload");
     await api("settings", "PUT", { watch: false, proxy: "" });
-    expect(await (await fetch(app.preview.url)).text()).not.toContain("/__dev-shell/live");
+    expect(await (await fetch(app.preview.url)).text()).not.toContain("/__dirito/live");
 
     const shell = connect(`${app.server.url.origin.replace(/^http/, "ws")}/api/socket?kind=terminal&token=${app.token}`, app.server.url.origin);
     let output = "";

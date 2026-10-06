@@ -63,7 +63,7 @@ export async function startWorkspace(directory: string, options: { port?: number
     watcher = undefined;
     if (enabled) watcher = watch(root, { recursive: true }, (_, filename) => {
       const path = String(filename ?? "");
-      if (path.split(/[\\/]/).some(part => ["node_modules", ".git"].includes(part) || part.startsWith(".dev-shell-save-"))) return;
+      if (path.split(/[\\/]/).some(part => ["node_modules", ".git"].includes(part) || part.startsWith(".dirito-save-"))) return;
       notify(path);
     });
     watching = enabled;
@@ -79,7 +79,7 @@ export async function startWorkspace(directory: string, options: { port?: number
       const url = new URL(req.url);
       if (url.origin !== server.url.origin) return new Response("Invalid host", { status: 403 });
       try {
-        if (url.pathname === "/__dev-shell/live") {
+        if (url.pathname === "/__dirito/live") {
           if (req.headers.get("origin") !== server.url.origin) return new Response("Forbidden", { status: 403 });
           return server.upgrade(req, { data: {} }) ? undefined : new Response("Upgrade required", { status: 426 });
         }
@@ -105,7 +105,7 @@ export async function startWorkspace(directory: string, options: { port?: number
         const response = new Response(req.method === "HEAD" ? null : file, { headers: { "Content-Type": file.type, "Cache-Control": "no-store" } });
         if (watching && req.method === "GET" && file.type.startsWith("text/html")) {
           return new HTMLRewriter().onDocument({ end(end) {
-            end.append(`<script>(()=>{const s=new WebSocket(location.origin.replace(/^http/,'ws')+'/__dev-shell/live');s.onmessage=()=>location.reload()})()</script>`, { html: true });
+            end.append(`<script>(()=>{const s=new WebSocket(location.origin.replace(/^http/,'ws')+'/__dirito/live');s.onmessage=()=>location.reload()})()</script>`, { html: true });
           } }).transform(response);
         }
         return response;
@@ -171,7 +171,7 @@ export async function startWorkspace(directory: string, options: { port?: number
             const path = await realpath(await pathFor(body.path));
             if (saves.has(path)) fail(409, "A save is already in progress.");
             saves.add(path);
-            const temporary = join(dirname(path), `.dev-shell-save-${crypto.randomUUID()}`);
+            const temporary = join(dirname(path), `.dirito-save-${crypto.randomUUID()}`);
             try {
               const info = await stat(path);
               if (!info.isFile() || info.size > MAX_FILE) fail(400, "Not an editable file.");
@@ -268,13 +268,13 @@ if (import.meta.main) {
       "no-open": { type: "boolean", default: false }, help: { type: "boolean", short: "h" },
     } });
     if (values.help) {
-      console.log("Usage: dev-shell [dir] [--watch] [--proxy /api=http://localhost:3001] [--port 3000] [--no-open]");
+      console.log("Usage: dirito [dir] [--watch] [--proxy /api=http://localhost:3001] [--port 3000] [--no-open]");
     } else {
       if (positionals.length > 1) throw new Error("Pass one workspace directory.");
       const port = Number(values.port);
       if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Port must be between 0 and 65535.");
       const app = await startWorkspace(positionals[0] ?? ".", { port, watch: values.watch, proxy: values.proxy });
-      console.log(`dev-shell  ${resolve(positionals[0] ?? ".")}\nWorkspace  ${app.url}\nPreview    ${app.preview.url.origin}\nTerminal commands have your user's full permissions. Keep the workspace URL private.`);
+      console.log(`dirito  ${resolve(positionals[0] ?? ".")}\nWorkspace  ${app.url}\nPreview    ${app.preview.url.origin}\nTerminal commands have your user's full permissions. Keep the workspace URL private.`);
       if (!values["no-open"]) {
         try {
           const command = process.platform === "darwin" ? ["open", app.url] : process.platform === "win32" ? ["cmd", "/c", "start", "", app.url] : ["xdg-open", app.url];

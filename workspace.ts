@@ -4,8 +4,8 @@ import { FitAddon } from "@xterm/addon-fit";
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const editor = el<HTMLTextAreaElement>("editor");
 const saveButton = el<HTMLButtonElement>("save");
-const token = location.hash.slice(1) || sessionStorage.getItem("dev-shell-token") || "";
-if (token) sessionStorage.setItem("dev-shell-token", token);
+const token = location.hash.slice(1) || sessionStorage.getItem("dirito-token") || "";
+if (token) sessionStorage.setItem("dirito-token", token);
 history.replaceState(null, "", location.pathname);
 let directory = "";
 let selected = "";
@@ -173,7 +173,7 @@ el<HTMLFormElement>("settings-form").onsubmit = event => {
 run(async () => {
   const state = await api("state");
   el("root").textContent = state.root; el("root").title = state.root;
-  document.title = `${state.root.split(/[\\/]/).filter(Boolean).at(-1)} · dev-shell`;
+  document.title = `${state.root.split(/[\\/]/).filter(Boolean).at(-1)} · dirito`;
   el<HTMLInputElement>("watch").checked = state.watch; el<HTMLInputElement>("proxy").value = state.proxy;
   previewURL = state.preview;
   el("preview-address").textContent = previewURL;
