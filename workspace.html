@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>dev-shell</title>
+  <link rel="stylesheet" href="./workspace.css">
+  <script type="module" src="./workspace.ts"></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="#">dev<span> / </span>shell</a>
+    <span id="root" title="Workspace directory">Local workspace</span>
+    <span id="connection" class="pill">Connecting</span>
+    <button id="settings-toggle" aria-expanded="false" aria-controls="settings">Settings</button>
+  </header>
+  <section id="settings" hidden aria-label="Workspace settings">
+    <form id="settings-form">
+      <label class="check"><input id="watch" type="checkbox"> Watch files and reload preview</label>
+      <label>HTTP proxy <input id="proxy" placeholder="/api=http://localhost:3001" spellcheck="false"></label>
+      <button type="submit">Apply</button>
+      <small>Proxy paths keep their prefix. Use /=http://localhost:5173 to preview a running dev server.</small>
+    </form>
+  </section>
+  <main>
+    <aside aria-label="File manager">
+      <div class="panel-heading"><h2>Files</h2><button id="refresh" title="Refresh files" aria-label="Refresh files">↻</button></div>
+      <nav class="file-tools" aria-label="File actions"><button id="new-file">+ File</button><button id="new-folder">+ Folder</button><button id="up">↑ Up</button></nav>
+      <div id="directory" class="path">/</div>
+      <ul id="files"></ul>
+      <div class="file-actions"><button id="rename" disabled>Rename</button><button id="delete" class="danger" disabled>Delete</button></div>
+      <small class="aside-note">Select a file to edit. Use the terminal for installs, Git, and dev commands.</small>
+    </aside>
+    <section class="work-area">
+      <div class="panes">
+        <section class="editor-pane" aria-label="Text editor">
+          <div class="panel-heading"><h2 id="filename">Editor</h2><span id="dirty"></span><button id="save" disabled>Save <kbd>⌘/Ctrl S</kbd></button></div>
+          <div id="editor-empty" class="empty"><span class="empty-symbol">{ }</span><h3>Your directory. Your tools.</h3><p>Open a file on the left, or create one.<br>The terminal below is already in your workspace.</p></div>
+          <textarea id="editor" hidden aria-label="File contents" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+          <div class="editor-footer"><span id="file-info">UTF-8 · text files up to 1 MiB</span><span id="cursor">Ln 1, Col 1</span></div>
+        </section>
+        <section class="preview-pane" aria-label="App preview">
+          <div class="panel-heading"><h2>Preview</h2><button id="reload">↻ Reload</button><a id="preview-open" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          <div id="preview-address" class="path">Starting preview…</div>
+          <iframe id="preview" title="Workspace app preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"></iframe>
+        </section>
+      </div>
+      <section class="terminal-pane" aria-label="Interactive terminal">
+        <div class="panel-heading"><h2>Terminal</h2><span class="terminal-note">Runs with your user permissions</span><button id="reconnect">New session</button></div>
+        <div id="terminal"></div>
+      </section>
+    </section>
+  </main>
+  <footer><span id="status" role="status" aria-live="polite">Starting workspace…</span><span id="activity">No file changes yet</span></footer>
+</body>
+</html>
