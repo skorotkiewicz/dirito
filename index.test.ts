@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startWorkspace } from "./index";
 
+// DOM types from xterm omit Bun's custom WebSocket headers option.
+const BunSocket = WebSocket as unknown as { new(url: string, options: Bun.WebSocketOptions): WebSocket };
+
 // Scratch directories are kept in the OS temp directory, never in the user's workspace.
 test("workspace files, permissions, proxy, watching, and PTY", async () => {
   const root = await mkdtemp(join(tmpdir(), "dev-shell-test-"));
@@ -14,6 +17,8 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
   await Bun.write(join(root, ".env"), "SECRET=private");
   await Bun.write(join(outside, "secret.txt"), "outside");
   await symlink(outside, join(root, "escape"));
+  await symlink(join(root, ".env"), join(root, "env-alias"));
+  await symlink(join(root, "missing"), join(root, "dangling"));
   await mkdir(join(root, "folder"));
   const upstream = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) { return Response.json({ path: new URL(req.url).pathname, method: req.method, body: await req.text() }); } });
   const app = await startWorkspace(root, { port: 0, watch: true });
@@ -22,7 +27,7 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
     return fetch(`${app.server.url.origin}/api/${path}`, { method, headers: { Authorization: `Bearer ${app.token}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   }
   function connect(url: string, origin: string) {
-    const ws = new WebSocket(url, { headers: { Origin: origin } }); sockets.push(ws); return ws;
+    const ws = new BunSocket(url, { headers: { Origin: origin } }); sockets.push(ws); return ws;
   }
   const opened = (ws: WebSocket) => new Promise<void>((resolve, reject) => { ws.addEventListener("open", () => resolve(), { once: true }); ws.addEventListener("error", reject, { once: true }); });
   try {
@@ -51,6 +56,7 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
     expect((await api("files", "POST", { path: "new.txt" })).status).toBe(200);
     expect((await api("files", "POST", { path: "new.txt" })).status).toBe(409);
     expect((await api("rename", "POST", { path: "new.txt", to: "notes.txt" })).status).toBe(409);
+    expect((await api("rename", "POST", { path: "new.txt", to: "dangling" })).status).toBe(409);
     expect((await api("rename", "POST", { path: "new.txt", to: "renamed.txt" })).status).toBe(200);
     expect((await api("files", "DELETE", { path: "renamed.txt" })).status).toBe(400);
     expect((await api("files", "DELETE", { path: "renamed.txt", confirm: "renamed.txt" })).status).toBe(200);
@@ -60,6 +66,7 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
     const preview = await (await fetch(app.preview.url)).text();
     expect(preview).toContain("Preview works"); expect(preview).toContain("/__dev-shell/live");
     expect((await fetch(`${app.preview.url}.env`)).status).toBe(403);
+    expect((await fetch(`${app.preview.url}env-alias`)).status).toBe(403);
     expect((await fetch(`${app.preview.url}escape/secret.txt`)).status).toBe(403);
     expect((await fetch(app.preview.url, { headers: { Host: "attacker.example" } })).status).toBe(403);
     expect((await api("settings", "PUT", { watch: true, proxy: `/api=${upstream.url.origin}` })).status).toBe(200);

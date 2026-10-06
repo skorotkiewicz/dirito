@@ -11,6 +11,7 @@ class HttpError extends Error {
 }
 function fail(status: number, message: string): never { throw new HttpError(status, message); }
 const version = (text: string) => Bun.hash(text).toString(16);
+const privatePreviewPath = (path: string) => path.split(/[\\/]/).some(part => part === ".git" || part === ".env" || part.startsWith(".env."));
 
 export function proxyConfig(value: string) {
   if (!value) return null;
@@ -95,15 +96,16 @@ export async function startWorkspace(directory: string, options: { port?: number
         }
         if (!["GET", "HEAD"].includes(req.method)) return new Response("Method not allowed", { status: 405 });
         const requested = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-        if (requested.split("/").some(part => part === ".git" || part === ".env" || part.startsWith(".env."))) fail(403, "Private configuration is not served in previews.");
+        if (privatePreviewPath(requested)) fail(403, "Private configuration is not served in previews.");
         let path = await pathFor(requested);
         if ((await stat(path)).isDirectory()) path = await pathFor(relative(root, join(path, "index.html")));
+        if (privatePreviewPath(relative(root, await realpath(path)))) fail(403, "Private configuration is not served in previews.");
         const file = Bun.file(path);
         if (!(await stat(path)).isFile()) fail(404, "Not a file.");
         const response = new Response(req.method === "HEAD" ? null : file, { headers: { "Content-Type": file.type, "Cache-Control": "no-store" } });
         if (watching && req.method === "GET" && file.type.startsWith("text/html")) {
           return new HTMLRewriter().onDocument({ end(end) {
-            end.append(`<script>const s=new WebSocket(location.origin.replace(/^http/,'ws')+'/__dev-shell/live');s.onmessage=()=>location.reload();</script>`, { html: true });
+            end.append(`<script>(()=>{const s=new WebSocket(location.origin.replace(/^http/,'ws')+'/__dev-shell/live');s.onmessage=()=>location.reload()})()</script>`, { html: true });
           } }).transform(response);
         }
         return response;
@@ -178,7 +180,7 @@ export async function startWorkspace(directory: string, options: { port?: number
               };
               await check();
               const handle = await open(temporary, "wx", info.mode);
-              try { await handle.writeFile(body.text); await handle.sync(); } finally { await handle.close(); }
+              try { await handle.writeFile(body.text); await handle.chmod(info.mode); await handle.sync(); } finally { await handle.close(); }
               await check();
               await rename(temporary, path);
             } finally {
@@ -201,7 +203,7 @@ export async function startWorkspace(directory: string, options: { port?: number
             const from = await pathFor(body.path);
             if (from === root) fail(403, "Cannot rename the workspace root.");
             const to = await pathFor(body.to, true);
-            try { await stat(to); fail(409, "Destination already exists."); } catch (error: any) { if (error.code !== "ENOENT") throw error; }
+            try { await lstat(to); fail(409, "Destination already exists."); } catch (error: any) { if (error.code !== "ENOENT") throw error; }
             await rename(from, to); notify(body.path);
             return Response.json({ ok: true });
           }
