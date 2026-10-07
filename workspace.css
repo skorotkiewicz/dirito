@@ -22,7 +22,7 @@ input[type=checkbox] { min-width: auto; accent-color: var(--accent); }
 small { color: var(--muted); line-height: 1.6; }
 main { display: flex; flex: 1; min-height: 286px; }
 aside { --default-size: 240px; width: clamp(160px, var(--pane-size, var(--default-size)), calc(100% - 462px)); min-width: 160px; flex-shrink: 0; border-right: 1px solid var(--line); display: flex; flex-direction: column; background: #1c201d; }
-.resize-handle { flex: 0 0 6px; min-width: 6px; min-height: 6px; background: var(--line); cursor: col-resize; touch-action: none; }
+.resize-handle { flex: 0 0 6px; min-width: 6px; min-height: 6px; background: transparent; cursor: col-resize; touch-action: none; }
 .resize-handle[aria-orientation=horizontal] { cursor: row-resize; }
 .resize-handle:hover, .resize-handle:focus-visible { background: var(--accent); outline: none; }
 body.resizing { user-select: none; }
