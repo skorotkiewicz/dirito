@@ -2,6 +2,10 @@
   "name": "dirito",
   "version": "0.2.0",
   "description": "A local browser workspace with a file manager, editor, terminal, and live preview.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skorotkiewicz/dirito.git"
+  },
   "keywords": ["bun", "cli", "development", "terminal", "workspace"],
   "engines": { "bun": ">=1.3.5" },
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
