@@ -1,11 +1,16 @@
 # dirito
 
-A browser workspace for a local directory: files, a text editor, an interactive terminal, and an app preview.
+![dirito: One command opens a local workspace with files, syntax-highlighted code, a terminal, and a live preview. Run bunx dirito dir/.](docs/dirito-banner.png)
 
-Requires Bun 1.3.5 or newer with `Bun.Terminal` support. A shell must be installed.
+A browser workspace for a local directory: files, a text editor, an interactive terminal, and an app preview.
 
 ```sh
 bunx dirito dir/
+```
+
+Requires Bun 1.3.5 or newer with `Bun.Terminal` support. A shell must be installed. No global install needed.
+
+```sh
 bunx dirito --watch dir/
 bunx dirito dir/ --watch --proxy /api=http://localhost:3001
 ```
