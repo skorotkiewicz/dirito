@@ -41,7 +41,7 @@ h2 { font-size: 12px; font-weight: 600; margin: 0; flex: 1; letter-spacing: .03e
 #filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #dirty { color: var(--accent); font-size: 11px; }
 kbd { font-family: inherit; font-size: 10px; opacity: .65; margin-left: 6px; }
-#editor { resize: none; border: 0; width: 100%; flex: 1; min-height: 0; padding: 20px; background: #181c19; color: #e3e8df; font: 13px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; }
+#editor { width: 100%; flex: 1; min-height: 0; overflow: hidden; font-size: 13px; }
 .editor-footer { display: flex; justify-content: space-between; padding: 7px 12px; color: var(--muted); font-size: 10px; border-top: 1px solid var(--line); }
 .empty { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; }
 .empty-symbol { font: 38px monospace; color: var(--accent); margin-bottom: 12px; }

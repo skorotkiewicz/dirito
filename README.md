@@ -17,12 +17,12 @@ For local development, run `bun install` followed by `bun index.ts dir/ --watch`
 ## Workspace
 
 - Browse files, create files and folders, rename items, and delete files or empty folders with explicit path confirmation. Use the arrow beside a folder to enter it, or double-click its name.
-- Edit UTF-8 text files up to 1 MiB. Save with Ctrl+S or Cmd+S. Unsaved changes trigger a discard warning. Saves use a temporary file and refuse stale versions instead of silently overwriting disk changes.
+- Edit UTF-8 text files up to 1 MiB with CodeMirror 6, line numbers, undo/redo, and syntax highlighting for JS/TS, JSX/TSX, HTML, CSS, JSON, and Markdown. Other files open as plain text. Tab indents; Escape then Tab moves focus out of the editor. Save with Ctrl+S or Cmd+S. Unsaved changes trigger a discard warning. Saves use a temporary file and refuse stale versions instead of silently overwriting disk changes.
 - Use the real shell to install dependencies, run Git, set environment variables, and start development commands. Terminal apps, colors, keyboard shortcuts, and resizing work through a PTY and xterm.js. Closing the page ends its terminal session.
 - Preview static files from the directory on a separate localhost port. The root serves `index.html`. Enable watching in Settings or pass `--watch` for HTML live reload. File changes appear in the bottom bar; `.git` and `node_modules` changes are ignored.
 - Configure one HTTP proxy in Settings or with `--proxy`. `/api=http://localhost:3001` forwards `/api/users` to `http://localhost:3001/api/users`. The path prefix is retained. Use `/=http://localhost:5173` to preview a framework dev server that you start in the terminal.
 
-The editor is a plain text editor, not a language server. Proxying is HTTP only, so upstream WebSocket HMR is not forwarded. Use the framework's own URL for its HMR, or Reload in the preview. Renames never overwrite existing destinations. Non-empty folders must be cleaned up deliberately in the terminal.
+The editor has syntax highlighting, but no language server. Proxying is HTTP only, so upstream WebSocket HMR is not forwarded. Use the framework's own URL for its HMR, or Reload in the preview. Renames never overwrite existing destinations. Non-empty folders must be cleaned up deliberately in the terminal.
 
 ## Security
 

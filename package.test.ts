@@ -19,7 +19,7 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
   // Skip prepack here because prepack runs this test itself.
   await command([process.execPath, "pm", "pack", "--destination", scratch, "--ignore-scripts"]);
   const files = (await command(["tar", "-tzf", archive])).trim().split("\n").sort();
-  const expected = ["package/README.md", "package/index.ts", "package/package.json", "package/workspace.css", "package/workspace.html", "package/workspace.ts"];
+  const expected = ["package/README.md", "package/editor.ts", "package/index.ts", "package/package.json", "package/workspace.css", "package/workspace.html", "package/workspace.ts"];
   if (await Bun.file(join(import.meta.dir, "LICENSE")).exists()) expected.push("package/LICENSE");
   expect(files).toEqual(expected.sort());
   await Bun.write(join(consumer, "package.json"), JSON.stringify({ name: "package-smoke", private: true, dependencies: { "dirito": archive } }));

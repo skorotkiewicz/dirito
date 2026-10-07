@@ -7,10 +7,17 @@
     "url": "git+https://github.com/skorotkiewicz/dirito.git"
   },
   "keywords": ["bun", "cli", "development", "terminal", "workspace"],
-  "engines": { "bun": ">=1.3.5" },
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
-  "files": ["index.ts", "workspace.html", "workspace.ts", "workspace.css"],
-  "bin": { "dirito": "./index.ts" },
+  "engines": {
+    "bun": ">=1.3.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": ["index.ts", "editor.ts", "workspace.html", "workspace.ts", "workspace.css"],
+  "bin": {
+    "dirito": "./index.ts"
+  },
   "scripts": {
     "dev": "bun index.ts",
     "test": "bun test",
@@ -23,7 +30,18 @@
     "typescript": "^7"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@lezer/highlight": "^1.2.5",
     "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0"
+    "@xterm/xterm": "^6.0.0",
+    "codemirror": "^6.0.2"
   }
 }

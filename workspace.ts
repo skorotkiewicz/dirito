@@ -1,8 +1,11 @@
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { EditorView } from "@codemirror/view";
+import { createEditorState } from "./editor";
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const editor = el<HTMLTextAreaElement>("editor");
+const editorContainer = el("editor");
+const editor = new EditorView({ parent: editorContainer, state: createEditorState("", "", updateEditor) });
 const saveButton = el<HTMLButtonElement>("save");
 const token = location.hash.slice(1) || sessionStorage.getItem("dirito-token") || "";
 if (token) sessionStorage.setItem("dirito-token", token);
@@ -14,7 +17,7 @@ let original = "";
 let fileVersion = "";
 let previewURL = "";
 let saving = false;
-const dirty = () => !!active && editor.value !== original;
+const dirty = () => !!active && editor.state.sliceDoc() !== original;
 const status = (message: string, error = false) => { el("status").textContent = message; el("status").style.color = error ? "#f0afa2" : ""; };
 async function api(path: string, method = "GET", body?: unknown) {
   const response = await fetch(`/api/${path}`, { method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -27,9 +30,9 @@ const discard = () => !dirty() || confirm("Discard unsaved changes?");
 function updateEditor() {
   el("dirty").textContent = dirty() ? "Unsaved" : "";
   saveButton.disabled = !dirty() || saving;
-  const before = editor.value.slice(0, editor.selectionStart);
-  const lines = before.split("\n");
-  el("cursor").textContent = `Ln ${lines.length}, Col ${(lines.at(-1)?.length ?? 0) + 1}`;
+  const head = editor.state.selection.main.head;
+  const line = editor.state.doc.lineAt(head);
+  el("cursor").textContent = `Ln ${line.number}, Col ${head - line.from + 1}`;
 }
 function select(path: string) {
   selected = path;
@@ -38,8 +41,9 @@ function select(path: string) {
   for (const button of el("files").querySelectorAll("button")) button.classList.toggle("selected", button.dataset.path === path);
 }
 function clearEditor() {
-  active = ""; original = ""; editor.value = "";
-  editor.hidden = true; el("editor-empty").hidden = false;
+  active = ""; original = "";
+  editor.setState(createEditorState("", "", updateEditor));
+  editorContainer.hidden = true; el("editor-empty").hidden = false;
   el("filename").textContent = "Editor"; updateEditor();
 }
 async function list() {
@@ -60,7 +64,8 @@ async function list() {
         if (saving || !discard()) return;
         const file = await api(`file?path=${encodeURIComponent(path)}`);
         select(path); active = path; original = file.text; fileVersion = file.version;
-        editor.value = file.text; editor.hidden = false; el("editor-empty").hidden = true;
+        editor.setState(createEditorState(file.text, path, updateEditor));
+        editorContainer.hidden = false; el("editor-empty").hidden = true;
         el("filename").textContent = path; updateEditor(); editor.focus(); status(`Opened ${path}`);
       }
     });
@@ -79,7 +84,7 @@ async function list() {
 async function save() {
   if (!dirty() || saving) return;
   saving = true; updateEditor();
-  const text = editor.value;
+  const text = editor.state.sliceDoc();
   try {
     const result = await api("file", "PUT", { path: active, text, version: fileVersion });
     original = text; fileVersion = result.version;
@@ -113,15 +118,6 @@ function connectTerminal() {
 terminal.onData(data => { if (terminalSocket?.readyState === WebSocket.OPEN) terminalSocket.send(JSON.stringify({ type: "input", data })); });
 new ResizeObserver(fitTerminal).observe(el("terminal"));
 
-editor.oninput = updateEditor;
-editor.onclick = updateEditor;
-editor.onkeyup = updateEditor;
-editor.onkeydown = event => {
-  if (event.key === "Tab") {
-    event.preventDefault();
-    editor.setRangeText("  ", editor.selectionStart, editor.selectionEnd, "end"); updateEditor();
-  }
-};
 document.addEventListener("keydown", event => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") { event.preventDefault(); run(save); }
 });
