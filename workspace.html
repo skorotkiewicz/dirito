@@ -23,7 +23,7 @@
     </form>
   </section>
   <main>
-    <aside aria-label="File manager">
+    <aside id="file-pane" aria-label="File manager">
       <div class="panel-heading"><h2>Files</h2><button id="refresh" title="Refresh files" aria-label="Refresh files">↻</button></div>
       <nav class="file-tools" aria-label="File actions"><button id="new-file">+ File</button><button id="new-folder">+ Folder</button><button id="up">↑ Up</button></nav>
       <div id="directory" class="path">/</div>
@@ -31,21 +31,24 @@
       <div class="file-actions"><button id="rename" disabled>Rename</button><button id="delete" class="danger" disabled>Delete</button></div>
       <small class="aside-note">Select a file to edit. Use the terminal for installs, Git, and dev commands.</small>
     </aside>
+    <div id="files-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize file manager" aria-orientation="vertical" aria-controls="file-pane"></div>
     <section class="work-area">
       <div class="panes">
-        <section class="editor-pane" aria-label="Text editor">
+        <section id="editor-pane" class="editor-pane" aria-label="Text editor">
           <div class="panel-heading"><h2 id="filename">Editor</h2><span id="dirty"></span><button id="save" disabled>Save <kbd>⌘/Ctrl S</kbd></button></div>
           <div id="editor-empty" class="empty"><span class="empty-symbol">{ }</span><h3>Your directory. Your tools.</h3><p>Open a file on the left, or create one.<br>The terminal below is already in your workspace.</p></div>
           <div id="editor" hidden></div>
           <div class="editor-footer"><span id="file-info">UTF-8 · text files up to 1 MiB</span><span id="cursor">Ln 1, Col 1</span></div>
         </section>
-        <section class="preview-pane" aria-label="App preview">
+        <div id="preview-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize editor and preview" aria-orientation="vertical" aria-controls="editor-pane preview-pane"></div>
+        <section id="preview-pane" class="preview-pane" aria-label="App preview">
           <div class="panel-heading"><h2>Preview</h2><button id="reload">↻ Reload</button><a id="preview-open" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
           <div id="preview-address" class="path">Starting preview…</div>
           <iframe id="preview" title="Workspace app preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"></iframe>
         </section>
       </div>
-      <section class="terminal-pane" aria-label="Interactive terminal">
+      <div id="terminal-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize terminal" aria-orientation="horizontal" aria-controls="terminal-pane"></div>
+      <section id="terminal-pane" class="terminal-pane" aria-label="Interactive terminal">
         <div class="panel-heading"><h2>Terminal</h2><span class="terminal-note">Runs with your user permissions</span><button id="reconnect">New session</button></div>
         <div id="terminal"></div>
       </section>

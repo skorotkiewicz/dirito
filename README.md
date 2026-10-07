@@ -21,6 +21,7 @@ For local development, run `bun install` followed by `bun index.ts dir/ --watch`
 
 ## Workspace
 
+- Drag the dividers to resize the file manager, editor/preview split, and terminal. Focus a divider and use arrow keys to resize, Shift+arrow for larger steps, or Home/End for the size limits. On narrow screens, panels stay stacked.
 - Browse files, create files and folders, rename items, and delete files or empty folders with explicit path confirmation. Use the arrow beside a folder to enter it, or double-click its name.
 - Edit UTF-8 text files up to 1 MiB with CodeMirror 6, line numbers, undo/redo, and syntax highlighting for JS/TS, JSX/TSX, HTML, CSS, JSON, and Markdown. Other files open as plain text. Tab indents; Escape then Tab moves focus out of the editor. Save with Ctrl+S or Cmd+S. Unsaved changes trigger a discard warning. Saves use a temporary file and refuse stale versions instead of silently overwriting disk changes.
 - Use the real shell to install dependencies, run Git, set environment variables, and start development commands. Terminal apps, colors, keyboard shortcuts, and resizing work through a PTY and xterm.js. Closing the page ends its terminal session.

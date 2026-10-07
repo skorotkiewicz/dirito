@@ -2,6 +2,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { EditorView } from "@codemirror/view";
 import { createEditorState } from "./editor";
+import { resizePane } from "./resize";
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const editorContainer = el("editor");
@@ -117,6 +118,9 @@ function connectTerminal() {
 }
 terminal.onData(data => { if (terminalSocket?.readyState === WebSocket.OPEN) terminalSocket.send(JSON.stringify({ type: "input", data })); });
 new ResizeObserver(fitTerminal).observe(el("terminal"));
+resizePane(el("files-resize"), el("file-pane"));
+resizePane(el("preview-resize"), el("editor-pane"));
+resizePane(el("terminal-resize"), el("terminal-pane"));
 
 document.addEventListener("keydown", event => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") { event.preventDefault(); run(save); }
