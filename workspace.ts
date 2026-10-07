@@ -93,7 +93,10 @@ async function save() {
   } finally { saving = false; updateEditor(); }
 }
 function reload() {
-  if (previewURL) el<HTMLIFrameElement>("preview").src = previewURL;
+  if (!previewURL) return;
+  el<HTMLIFrameElement>("preview").src = previewURL;
+  el<HTMLAnchorElement>("preview-open").href = previewURL;
+  el<HTMLInputElement>("preview-path").title = previewURL;
 }
 function socket(kind: string) {
   return new WebSocket(`${location.origin.replace(/^http/, "ws")}/api/socket?kind=${kind}&token=${encodeURIComponent(token)}`);
@@ -130,6 +133,17 @@ el("save").onclick = () => run(save);
 el("refresh").onclick = () => run(list);
 el("up").onclick = () => run(async () => { directory = directory.split("/").slice(0, -1).join("/"); select(""); await list(); });
 el("reload").onclick = reload;
+el<HTMLFormElement>("preview-form").onsubmit = event => {
+  event.preventDefault();
+  if (!previewURL) return;
+  const input = el<HTMLInputElement>("preview-path");
+  const path = "/" + input.value.trim().replace(/^\/+/, "");
+  const url = new URL(previewURL);
+  url.pathname = path.split("/").map(encodeURIComponent).join("/");
+  previewURL = url.href;
+  input.value = path;
+  reload(); status(`Previewing ${url.pathname}`);
+};
 el("reconnect").onclick = () => { if (confirm("Start a new shell session? The current session will close.")) connectTerminal(); };
 for (const [id, folder] of [["new-file", false], ["new-folder", true]] as const) {
   el(id).onclick = () => run(async () => {
@@ -175,9 +189,9 @@ run(async () => {
   el("root").textContent = state.root; el("root").title = state.root;
   document.title = `${state.root.split(/[\\/]/).filter(Boolean).at(-1)} · dirito`;
   el<HTMLInputElement>("watch").checked = state.watch; el<HTMLInputElement>("proxy").value = state.proxy;
+  el("app-version").textContent = `v${state.version}`;
+  el("app-version").hidden = false;
   previewURL = state.preview;
-  el("preview-address").textContent = previewURL;
-  el<HTMLAnchorElement>("preview-open").href = previewURL;
   reload(); await list(); connectTerminal();
   let refreshTimer: ReturnType<typeof setTimeout>;
   let reconnectTimer: ReturnType<typeof setTimeout>;

@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startWorkspace } from "./index";
+import packageInfo from "./package.json";
 
 // DOM types from xterm omit Bun's custom WebSocket headers option.
 const BunSocket = WebSocket as unknown as { new(url: string, options: Bun.WebSocketOptions): WebSocket };
@@ -20,6 +21,10 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
   await symlink(join(root, ".env"), join(root, "env-alias"));
   await symlink(join(root, "missing"), join(root, "dangling"));
   await mkdir(join(root, "folder"));
+  await mkdir(join(root, "examples"));
+  await Bun.write(join(root, "demo.html"), "<!doctype html><h1>Alternate preview</h1>");
+  await Bun.write(join(root, "examples/index.html"), '<!doctype html><link rel="stylesheet" href="style.css"><h1>Folder preview</h1>');
+  await Bun.write(join(root, "examples/style.css"), "h1 { color: green; }");
   const upstream = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(req) { return Response.json({ path: new URL(req.url).pathname, method: req.method, body: await req.text() }); } });
   const app = await startWorkspace(root, { port: 0, watch: true });
   const sockets: WebSocket[] = [];
@@ -33,6 +38,9 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
   try {
     const html = await (await fetch(app.server.url)).text();
     expect(html).toContain("File manager");
+    expect(html).toContain('id="preview-form"');
+    expect(html).toContain('id="app-version"');
+    expect((await (await api("state")).json()).version).toBe(packageInfo.version);
     expect((await fetch(`${app.server.url}api/state`)).status).toBe(401);
     expect((await fetch(`${app.server.url}api/state`, { headers: { Authorization: `Bearer ${app.token}`, Origin: "https://attacker.example" } })).status).toBe(403);
     expect((await fetch(`${app.server.url}api/state`, { headers: { Authorization: `Bearer ${app.token}`, Host: "attacker.example" } })).status).toBe(403);
@@ -65,6 +73,18 @@ test("workspace files, permissions, proxy, watching, and PTY", async () => {
 
     const preview = await (await fetch(app.preview.url)).text();
     expect(preview).toContain("Preview works"); expect(preview).toContain("/__dirito/live");
+    const alternate = await (await fetch(`${app.preview.url}demo.html`)).text();
+    expect(alternate).toContain("Alternate preview");
+    expect(alternate).toContain("/__dirito/live");
+    const redirect = await fetch(`${app.preview.url}examples?theme=light`, { redirect: "manual" });
+    expect(redirect.status).toBe(307);
+    expect(redirect.headers.get("location")).toBe("/examples/?theme=light");
+    const folder = await fetch(`${app.preview.url}examples`);
+    expect(new URL(folder.url).pathname).toBe("/examples/");
+    const folderHTML = await folder.text();
+    expect(folderHTML).toContain("Folder preview");
+    expect(folderHTML).toContain("/__dirito/live");
+    expect(await (await fetch(new URL("style.css", folder.url))).text()).toBe("h1 { color: green; }");
     expect((await fetch(`${app.preview.url}.env`)).status).toBe(403);
     expect((await fetch(`${app.preview.url}env-alias`)).status).toBe(403);
     expect((await fetch(`${app.preview.url}escape/secret.txt`)).status).toBe(403);

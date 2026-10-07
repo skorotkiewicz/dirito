@@ -9,7 +9,7 @@
 </head>
 <body>
   <header>
-    <a class="brand" href="#">dir<span>ito</span></a>
+    <a class="brand" href="#">dir<span>ito</span><small id="app-version" title="Installed version" hidden></small></a>
     <span id="root" title="Workspace directory">Local workspace</span>
     <span id="connection" class="pill">Connecting</span>
     <button id="settings-toggle" aria-expanded="false" aria-controls="settings">Settings</button>
@@ -43,7 +43,10 @@
         <div id="preview-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize editor and preview" aria-orientation="vertical" aria-controls="editor-pane preview-pane"></div>
         <section id="preview-pane" class="preview-pane" aria-label="App preview">
           <div class="panel-heading"><h2>Preview</h2><button id="reload">↻ Reload</button><a id="preview-open" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
-          <div id="preview-address" class="path">Starting preview…</div>
+          <form id="preview-form" class="preview-path">
+            <input id="preview-path" aria-label="Preview file or folder" value="/" placeholder="demo.html or examples/" spellcheck="false" autocomplete="off">
+            <button type="submit">Go</button>
+          </form>
           <iframe id="preview" title="Workspace app preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"></iframe>
         </section>
       </div>

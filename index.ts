@@ -4,6 +4,7 @@ import { realpath, readdir, stat, lstat, mkdir, rename, rm, rmdir, open } from "
 import { watch, type FSWatcher } from "node:fs";
 import { resolve, relative, dirname, sep, join } from "node:path";
 import workspace from "./workspace.html";
+import packageInfo from "./package.json";
 
 const MAX_FILE = 1024 * 1024;
 class HttpError extends Error {
@@ -98,7 +99,10 @@ export async function startWorkspace(directory: string, options: { port?: number
         const requested = decodeURIComponent(url.pathname).replace(/^\/+/, "");
         if (privatePreviewPath(requested)) fail(403, "Private configuration is not served in previews.");
         let path = await pathFor(requested);
-        if ((await stat(path)).isDirectory()) path = await pathFor(relative(root, join(path, "index.html")));
+        if ((await stat(path)).isDirectory()) {
+          if (!url.pathname.endsWith("/")) return new Response(null, { status: 307, headers: { Location: `${url.pathname}/${url.search}`, "Cache-Control": "no-store" } });
+          path = await pathFor(relative(root, join(path, "index.html")));
+        }
         if (privatePreviewPath(relative(root, await realpath(path)))) fail(403, "Private configuration is not served in previews.");
         const file = Bun.file(path);
         if (!(await stat(path)).isFile()) fail(404, "Not a file.");
@@ -139,7 +143,7 @@ export async function startWorkspace(directory: string, options: { port?: number
             if (kind === "terminal" && terminals.size >= 8) fail(429, "Too many terminals.");
             return current.upgrade(req, { data: { kind } }) ? undefined : new Response("Upgrade required", { status: 426 });
           }
-          if (url.pathname === "/api/state" && req.method === "GET") return Response.json({ root, watch: watching, proxy: proxyText, preview: preview.url.origin });
+          if (url.pathname === "/api/state" && req.method === "GET") return Response.json({ root, watch: watching, proxy: proxyText, preview: preview.url.origin, version: packageInfo.version });
           if (url.pathname === "/api/settings" && req.method === "PUT") {
             const body = await req.json();
             if (typeof body.watch !== "boolean" || typeof body.proxy !== "string") fail(400, "Invalid settings.");

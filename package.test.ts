@@ -28,6 +28,7 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
   const installed = await Bun.file(join(consumer, "node_modules/dirito/package.json")).json();
   expect(installed.bin["dirito"]).toBe("./index.ts");
   expect(installed.peerDependencies).toBeUndefined();
+  await command([process.execPath, "build", "./node_modules/dirito/workspace.html", "--outdir", join(consumer, "ui-build")], consumer);
   await mkdir(join(consumer, "project"));
   await Bun.write(join(consumer, "project/index.html"), "<!doctype html><h1>Packed preview</h1>");
   expect(await command([process.execPath, "x", "--no-install", "dirito", "--help"], consumer)).toContain("Usage: dirito");
@@ -48,7 +49,10 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
     const state = await (await fetch(`${url.origin}/api/state`, { headers: auth, signal: AbortSignal.timeout(5000) })).json();
     expect(state.root).toBe(join(consumer, "project"));
     expect(state.watch).toBe(true);
-    const html = await (await fetch(url.origin)).text();
+    expect(state.version).toBe(manifest.version);
+    const htmlResponse = await fetch(url.origin);
+    expect(htmlResponse.status).toBe(200);
+    const html = await htmlResponse.text();
     expect(html).toContain("File manager");
     for (const asset of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)) {
       const response = await fetch(new URL(asset[1]!, url.origin));
@@ -60,5 +64,7 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
     clearTimeout(bootTimeout);
     cli.kill();
     await cli.exited;
+    const errors = await new Response(cli.stderr).text();
+    if (errors) console.error(errors);
   }
 }, 60000);
