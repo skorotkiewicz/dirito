@@ -1,6 +1,6 @@
 {
   "name": "dirito",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A local browser workspace with files, an editor, terminal, coding agents, and live preview.",
   "repository": {
     "type": "git",
