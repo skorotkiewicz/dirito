@@ -3,6 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { EditorView } from "@codemirror/view";
 import { createEditorState } from "./editor";
 import { resizePane } from "./resize";
+import type { codingAgents } from "./agents";
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const editorContainer = el("editor");
@@ -98,29 +99,90 @@ function reload() {
   el<HTMLAnchorElement>("preview-open").href = previewURL;
   el<HTMLInputElement>("preview-path").title = previewURL;
 }
-function socket(kind: string) {
-  return new WebSocket(`${location.origin.replace(/^http/, "ws")}/api/socket?kind=${kind}&token=${encodeURIComponent(token)}`);
+function socket(kind: string, params: Record<string, string> = {}) {
+  const query = new URLSearchParams({ ...params, kind, token });
+  return new WebSocket(`${location.origin.replace(/^http/, "ws")}/api/socket?${query}`);
 }
 
-const terminal = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace", theme: { background: "#111612", foreground: "#d8e3d1", cursor: "#b7dc92" }, scrollback: 5000 });
-const fit = new FitAddon();
-terminal.loadAddon(fit); terminal.open(el("terminal"));
-let terminalSocket: WebSocket | undefined;
-function fitTerminal() {
-  fit.fit();
-  if (terminalSocket?.readyState === WebSocket.OPEN) terminalSocket.send(JSON.stringify({ type: "resize", cols: terminal.cols, rows: terminal.rows }));
+function createConsole(id: string, kind: "terminal" | "agent", onClose = () => {}, onOpen = () => {}) {
+  const container = el(id);
+  const terminal = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace", theme: { background: "#111612", foreground: "#d8e3d1", cursor: "#b7dc92" }, scrollback: 5000 });
+  const fit = new FitAddon();
+  terminal.loadAddon(fit); terminal.open(container);
+  let connection: WebSocket | undefined;
+  function fitTerminal() {
+    if (!container.clientWidth || !container.clientHeight) return;
+    fit.fit();
+    if (connection?.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: "resize", cols: terminal.cols, rows: terminal.rows }));
+  }
+  function connect(params: Record<string, string> = {}) {
+    connection?.close(); terminal.reset();
+    const ws = socket(kind, params); connection = ws;
+    ws.binaryType = "arraybuffer";
+    ws.onopen = () => {
+      if (ws !== connection) return;
+      fitTerminal(); onOpen();
+      if (kind === "agent") terminal.focus(); else status("Terminal ready");
+    };
+    ws.onmessage = event => { if (ws === connection) terminal.write(event.data instanceof ArrayBuffer ? new Uint8Array(event.data) : event.data); };
+    ws.onclose = () => {
+      if (ws !== connection) return;
+      connection = undefined;
+      terminal.write(`\r\n[Disconnected. Use ${kind === "agent" ? "Start" : "New session"} to reconnect.]\r\n`);
+      onClose();
+    };
+    ws.onerror = () => { if (ws === connection) status(`${kind === "agent" ? "Agent" : "Terminal"} connection failed. Check the CLI installation, server, and workspace URL.`, true); };
+  }
+  function stop() {
+    connection?.close(); connection = undefined;
+    terminal.write("\r\n[Session closed]\r\n"); onClose();
+  }
+  terminal.onData(data => { if (connection?.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: "input", data })); });
+  new ResizeObserver(fitTerminal).observe(container);
+  window.addEventListener("pagehide", stop);
+  return { connect, stop, fit: fitTerminal, active: () => !!connection && connection.readyState < WebSocket.CLOSING };
 }
-function connectTerminal() {
-  terminalSocket?.close(); terminal.reset();
-  const ws = socket("terminal"); terminalSocket = ws;
-  ws.binaryType = "arraybuffer";
-  ws.onopen = () => { fitTerminal(); status("Terminal ready"); };
-  ws.onmessage = event => { if (ws === terminalSocket) terminal.write(event.data instanceof ArrayBuffer ? new Uint8Array(event.data) : event.data); };
-  ws.onclose = () => { if (ws === terminalSocket) terminal.write("\r\n[Disconnected. Use New session to reconnect.]\r\n"); };
-  ws.onerror = () => status("Terminal connection failed. Check the server and workspace URL.", true);
+const shellConsole = createConsole("terminal", "terminal");
+const agentSelect = el<HTMLSelectElement>("agent-select");
+const thinkingSelect = el<HTMLSelectElement>("thinking-select");
+const startAgent = el<HTMLButtonElement>("start-agent");
+const stopAgent = el<HTMLButtonElement>("stop-agent");
+let agents: ((typeof codingAgents)[number] & { available: boolean })[] = [];
+function updateThinking() {
+  const agent = agents.find(agent => agent.id === agentSelect.value);
+  thinkingSelect.replaceChildren(...(agent?.thinking ?? []).map(level => new Option(level === "default" ? "Default" : level === "xhigh" ? "Extra high" : level[0]!.toUpperCase() + level.slice(1), level)));
+  thinkingSelect.disabled = !agent?.available;
+  startAgent.disabled = !agent?.available;
 }
-terminal.onData(data => { if (terminalSocket?.readyState === WebSocket.OPEN) terminalSocket.send(JSON.stringify({ type: "input", data })); });
-new ResizeObserver(fitTerminal).observe(el("terminal"));
+const agentConsole = createConsole("agent-terminal", "agent", () => {
+  startAgent.textContent = "Start"; stopAgent.disabled = true;
+  el("agent-status").textContent = "Stopped";
+}, () => { el("agent-status").textContent = "Running"; });
+agentSelect.onchange = updateThinking;
+startAgent.onclick = () => {
+  if (agentConsole.active() && !confirm("Restart the coding agent? This ends the current agent session.")) return;
+  el("agent-empty").hidden = true; el("agent-terminal").hidden = false;
+  startAgent.textContent = "Restart"; stopAgent.disabled = false;
+  el("agent-status").textContent = "Starting…";
+  agentConsole.connect({ agent: agentSelect.value, thinking: thinkingSelect.value });
+};
+stopAgent.onclick = agentConsole.stop;
+const viewTabs = [el<HTMLButtonElement>("agent-tab"), el<HTMLButtonElement>("preview-tab")];
+function showView(index: number) {
+  el("agent-panel").hidden = index !== 0; el("agent-status").hidden = index !== 0;
+  el("preview-panel").hidden = index !== 1; el("preview-actions").hidden = index !== 1;
+  viewTabs.forEach((tab, i) => { tab.setAttribute("aria-selected", String(i === index)); tab.tabIndex = i === index ? 0 : -1; });
+  if (index === 0) requestAnimationFrame(agentConsole.fit);
+}
+viewTabs.forEach((tab, index) => {
+  tab.onclick = () => showView(index);
+  tab.onkeydown = event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const target = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
+    showView(target); viewTabs[target]!.focus();
+  };
+});
 resizePane(el("files-resize"), el("file-pane"));
 resizePane(el("preview-resize"), el("editor-pane"));
 resizePane(el("terminal-resize"), el("terminal-pane"));
@@ -144,7 +206,7 @@ el<HTMLFormElement>("preview-form").onsubmit = event => {
   input.value = path;
   reload(); status(`Previewing ${url.pathname}`);
 };
-el("reconnect").onclick = () => { if (confirm("Start a new shell session? The current session will close.")) connectTerminal(); };
+el("reconnect").onclick = () => { if (confirm("Start a new shell session? The current session will close.")) shellConsole.connect(); };
 for (const [id, folder] of [["new-file", false], ["new-folder", true]] as const) {
   el(id).onclick = () => run(async () => {
     const name = prompt(folder ? "New folder name" : "New file name");
@@ -191,8 +253,18 @@ run(async () => {
   el<HTMLInputElement>("watch").checked = state.watch; el<HTMLInputElement>("proxy").value = state.proxy;
   el("app-version").textContent = `v${state.version}`;
   el("app-version").hidden = false;
+  agents = state.agents;
+  agentSelect.replaceChildren(...agents.map(agent => {
+    const option = new Option(agent.name + (agent.available ? "" : " (not installed)"), agent.id);
+    option.disabled = !agent.available; return option;
+  }));
+  const installed = agents.find(agent => agent.available);
+  agentSelect.value = (installed ?? agents[0])?.id ?? "";
+  agentSelect.disabled = !installed; updateThinking();
+  el("agent-status").textContent = installed ? "Ready" : "Not installed";
+  el("agent-hint").textContent = installed ? "Choose an agent and thinking level, then Start. Uses your local CLI login and settings." : "Install Codex, Pi, or Claude Code on PATH and log in locally, then reload this page.";
   previewURL = state.preview;
-  reload(); await list(); connectTerminal();
+  reload(); await list(); shellConsole.connect();
   let refreshTimer: ReturnType<typeof setTimeout>;
   let reconnectTimer: ReturnType<typeof setTimeout>;
   function connectEvents() {

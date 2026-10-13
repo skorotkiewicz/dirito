@@ -40,14 +40,36 @@
           <div id="editor" hidden></div>
           <div class="editor-footer"><span id="file-info">UTF-8 · text files up to 1 MiB</span><span id="cursor">Ln 1, Col 1</span></div>
         </section>
-        <div id="preview-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize editor and preview" aria-orientation="vertical" aria-controls="editor-pane preview-pane"></div>
-        <section id="preview-pane" class="preview-pane" aria-label="App preview">
-          <div class="panel-heading"><h2>Preview</h2><button id="reload">↻ Reload</button><a id="preview-open" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
-          <form id="preview-form" class="preview-path">
-            <input id="preview-path" aria-label="Preview file or folder" value="/" placeholder="demo.html or examples/" spellcheck="false" autocomplete="off">
-            <button type="submit">Go</button>
-          </form>
-          <iframe id="preview" title="Workspace app preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"></iframe>
+        <div id="preview-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize editor and workspace view" aria-orientation="vertical" aria-controls="editor-pane preview-pane"></div>
+        <section id="preview-pane" class="preview-pane" aria-label="Coding agent and preview">
+          <div class="panel-heading view-heading">
+            <div class="view-tabs" role="tablist" aria-label="Workspace view">
+              <button id="agent-tab" role="tab" aria-selected="true" aria-controls="agent-panel">Agent</button>
+              <button id="preview-tab" role="tab" aria-selected="false" aria-controls="preview-panel" tabindex="-1">Preview</button>
+            </div>
+            <span id="agent-status" role="status">Ready</span>
+            <div id="preview-actions" hidden><button id="reload">↻ Reload</button><a id="preview-open" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+          </div>
+          <div id="agent-panel" class="view-panel" role="tabpanel" aria-labelledby="agent-tab">
+            <div class="agent-controls">
+              <label for="agent-select">Agent<select id="agent-select" disabled></select></label>
+              <label for="thinking-select">Thinking<select id="thinking-select" disabled></select></label>
+              <button id="start-agent" title="Start a new session with the selected agent and thinking level" disabled>Start</button>
+              <button id="stop-agent" disabled>Stop</button>
+            </div>
+            <div id="agent-empty" class="empty">
+              <span class="empty-symbol">&gt;_</span><h3>Choose a coding agent</h3>
+              <p id="agent-hint">Checking installed agents…</p>
+            </div>
+            <div id="agent-terminal" aria-label="Coding agent terminal" hidden></div>
+          </div>
+          <div id="preview-panel" class="view-panel" role="tabpanel" aria-labelledby="preview-tab" hidden>
+            <form id="preview-form" class="preview-path">
+              <input id="preview-path" aria-label="Preview file or folder" value="/" placeholder="demo.html or examples/" spellcheck="false" autocomplete="off">
+              <button type="submit">Go</button>
+            </form>
+            <iframe id="preview" title="Workspace app preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"></iframe>
+          </div>
         </section>
       </div>
       <div id="terminal-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize terminal" aria-orientation="horizontal" aria-controls="terminal-pane"></div>

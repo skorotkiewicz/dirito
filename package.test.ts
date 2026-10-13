@@ -19,11 +19,11 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
   // Skip prepack here because prepack runs this test itself.
   await command([process.execPath, "pm", "pack", "--destination", scratch, "--ignore-scripts"]);
   const files = (await command(["tar", "-tzf", archive])).trim().split("\n").sort();
-  const expected = ["package/README.md", "package/editor.ts", "package/index.ts", "package/package.json", "package/resize.ts", "package/workspace.css", "package/workspace.html", "package/workspace.ts"];
+  const expected = ["package/README.md", "package/agents.ts", "package/editor.ts", "package/index.ts", "package/package.json", "package/resize.ts", "package/workspace.css", "package/workspace.html", "package/workspace.ts"];
   if (await Bun.file(join(import.meta.dir, "LICENSE")).exists()) expected.push("package/LICENSE");
   expect(files).toEqual(expected.sort());
   await Bun.write(join(consumer, "package.json"), JSON.stringify({ name: "package-smoke", private: true, dependencies: { "dirito": archive } }));
-  await command([process.execPath, "install", "--production", "--ignore-scripts"], consumer);
+  await command([process.execPath, "install", "--production", "--ignore-scripts", "--registry", "https://registry.npmjs.org"], consumer);
   expect(await Bun.file(join(consumer, "node_modules/typescript/package.json")).exists()).toBe(false);
   const installed = await Bun.file(join(consumer, "node_modules/dirito/package.json")).json();
   expect(installed.bin["dirito"]).toBe("./index.ts");
@@ -50,10 +50,13 @@ test("npm tarball installs cleanly and runs through bunx from another directory"
     expect(state.root).toBe(join(consumer, "project"));
     expect(state.watch).toBe(true);
     expect(state.version).toBe(manifest.version);
+    expect(state.agents.map((agent: any) => agent.id)).toEqual(["codex", "pi", "claude"]);
     const htmlResponse = await fetch(url.origin);
     expect(htmlResponse.status).toBe(200);
     const html = await htmlResponse.text();
     expect(html).toContain("File manager");
+    expect(html).toContain('id="agent-select"');
+    expect(html).toContain('id="thinking-select"');
     for (const asset of html.matchAll(/(?:src|href)="([^"]+\.(?:js|css))"/g)) {
       const response = await fetch(new URL(asset[1]!, url.origin));
       expect(response.status).toBe(200);

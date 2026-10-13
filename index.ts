@@ -5,6 +5,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { resolve, relative, dirname, sep, join } from "node:path";
 import workspace from "./workspace.html";
 import packageInfo from "./package.json";
+import { codingAgents, agentArguments } from "./agents";
 
 const MAX_FILE = 1024 * 1024;
 class HttpError extends Error {
@@ -38,7 +39,7 @@ export async function startWorkspace(directory: string, options: { port?: number
   const terminals = new Set<Bun.ServerWebSocket<SocketData>>();
   const reloaders = new Set<Bun.ServerWebSocket<{}>>();
   const saves = new Set<string>();
-  type SocketData = { kind: "events" | "terminal"; proc?: ReturnType<typeof Bun.spawn> };
+  type SocketData = { kind: "events" | "terminal" | "agent"; command?: string[]; proc?: ReturnType<typeof Bun.spawn> };
 
   const inside = (path: string) => {
     const rel = relative(root, path);
@@ -139,11 +140,20 @@ export async function startWorkspace(directory: string, options: { port?: number
           if (socket) {
             if (req.headers.get("origin") !== current.url.origin) fail(403, "Forbidden origin.");
             const kind = url.searchParams.get("kind");
-            if (kind !== "events" && kind !== "terminal") fail(400, "Invalid socket kind.");
-            if (kind === "terminal" && terminals.size >= 8) fail(429, "Too many terminals.");
-            return current.upgrade(req, { data: { kind } }) ? undefined : new Response("Upgrade required", { status: 426 });
+            if (kind !== "events" && kind !== "terminal" && kind !== "agent") fail(400, "Invalid socket kind.");
+            if (kind !== "events" && terminals.size >= 8) fail(429, "Too many terminal sessions.");
+            let command: string[] | undefined;
+            if (kind === "agent") {
+              command = agentArguments(url.searchParams.get("agent") ?? "", url.searchParams.get("thinking") ?? "default");
+              const executable = Bun.which(command[0]!, { PATH: process.env.PATH });
+              if (!executable) fail(503, `Install ${command[0]} on PATH and log in locally before starting it.`);
+              command[0] = executable;
+            }
+            return current.upgrade(req, { data: { kind, command } }) ? undefined : new Response("Upgrade required", { status: 426 });
           }
-          if (url.pathname === "/api/state" && req.method === "GET") return Response.json({ root, watch: watching, proxy: proxyText, preview: preview.url.origin, version: packageInfo.version });
+          if (url.pathname === "/api/state" && req.method === "GET") return Response.json({ root, watch: watching, proxy: proxyText, preview: preview.url.origin, version: packageInfo.version,
+            agents: codingAgents.map(agent => ({ ...agent, available: !!Bun.which(agent.id, { PATH: process.env.PATH }) })),
+          });
           if (url.pathname === "/api/settings" && req.method === "PUT") {
             const body = await req.json();
             if (typeof body.watch !== "boolean" || typeof body.proxy !== "string") fail(400, "Invalid settings.");
@@ -230,16 +240,16 @@ export async function startWorkspace(directory: string, options: { port?: number
           if (ws.data.kind === "events") { events.add(ws); return; }
           terminals.add(ws);
           try {
-            const proc = Bun.spawn([process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/sh")], {
+            const proc = Bun.spawn(ws.data.command ?? [process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/sh")], {
               cwd: root, env: { ...process.env, TERM: "xterm-256color" },
               terminal: { cols: 100, rows: 24, data(_, data) { ws.sendBinary(data); } },
             });
             ws.data.proc = proc;
-            void proc.exited.then(code => { ws.sendBinary(new TextEncoder().encode(`\r\n[Shell exited: ${code}]\r\n`)); ws.close(); });
+            void proc.exited.then(code => { ws.sendBinary(new TextEncoder().encode(`\r\n[${ws.data.kind === "agent" ? "Agent" : "Shell"} exited: ${code}]\r\n`)); ws.close(); });
           } catch (error: any) { ws.sendBinary(new TextEncoder().encode(error.message)); ws.close(); }
         },
         message(ws, raw) {
-          if (ws.data.kind !== "terminal") return;
+          if (ws.data.kind === "events") return;
           try {
             const message = JSON.parse(String(raw));
             if (message.type === "input" && typeof message.data === "string") ws.data.proc?.terminal?.write(message.data);
@@ -278,7 +288,7 @@ if (import.meta.main) {
       const port = Number(values.port);
       if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Port must be between 0 and 65535.");
       const app = await startWorkspace(positionals[0] ?? ".", { port, watch: values.watch, proxy: values.proxy });
-      console.log(`dirito  ${resolve(positionals[0] ?? ".")}\nWorkspace  ${app.url}\nPreview    ${app.preview.url.origin}\nTerminal commands have your user's full permissions. Keep the workspace URL private.`);
+      console.log(`dirito  ${resolve(positionals[0] ?? ".")}\nWorkspace  ${app.url}\nPreview    ${app.preview.url.origin}\nTerminal commands and coding agents run as your user. Keep the workspace URL private.`);
       if (!values["no-open"]) {
         try {
           const command = process.platform === "darwin" ? ["open", app.url] : process.platform === "win32" ? ["cmd", "/c", "start", "", app.url] : ["xdg-open", app.url];
